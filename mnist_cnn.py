@@ -15,7 +15,7 @@ from tensorflow.keras.datasets import mnist
 #from tensorflow.keras.utils import set_random_seed
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Lambda
 from tensorflow.keras.models import Sequential
-#import tensorflow.keras.backend as K
+import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam
 #from tensorflow.keras.regularizers import l2
 #from tensorflow.keras.regularizers import l1_l2
@@ -189,7 +189,7 @@ for i in range(m):
     print(i)
     cost_rand = random.choice(np.arange(785))
     lst_rand = random.sample([i for i in range(0,784)],cost_rand)
-    tp = (-1,)*784
+    tp = (1,)*784
     state = np.array(tp,dtype=np.float64)
     state = make_test(lst_rand,state,i)
     #mask = get_mask(state)
@@ -204,7 +204,7 @@ x_train_new = x_train_new.reshape((-1,28,28,1))
 x_test_new = x_test_new.reshape((-1,28,28,1))
 
 # Prepare the training dataset.
-batch_size = 128
+batch_size = 256
 train_dataset = tf.data.Dataset.from_tensor_slices((x_train_new, y_train))
 train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
 
@@ -311,16 +311,16 @@ for epoch in range(epochs):
 
     #test_acc = test_acc_metric.result()
 
-    #if not any(i >= val_acc for i in acc_val):
-    #    print('Saving')
-    #    model_name = "mnist_cnn_random_" + str(random_state) + '_' + str(seed_value)# + ".h5"
-    #    symbolic_weights = getattr(model.optimizer, 'weights')
-    #    weight_values = K.batch_get_value(symbolic_weights)
-    #    opt_name = model_name + '_optimizer.pkl'
-    #    with open(opt_name, 'wb') as f:
-    #        pickle.dump(weight_values, f)
-    #    weight_name = model_name + '.h5'
-    #    model.save_weights(weight_name)
+    if not any(i >= val_acc for i in acc_val):
+       print('Saving')
+       model_name = "mnist_cnn_random_" + str(random_state) + '_' + str(seed_value)# + ".h5"
+       symbolic_weights = getattr(model.optimizer, 'weights')
+       weight_values = K.batch_get_value(symbolic_weights)
+       opt_name = model_name + '_optimizer.pkl'
+       with open(opt_name, 'wb') as f:
+           pickle.dump(weight_values, f)
+       weight_name = model_name + '.h5'
+       model.save_weights(weight_name)
 
     acc_val.append(val_acc)
 
