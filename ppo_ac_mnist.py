@@ -21,39 +21,6 @@ import time
 import json
 import heapq
 
-random_state = 1
-
-seed_value = 12321
-
-# Set a seed value
-import os
-os.environ['PYTHONHASHSEED']=str(seed_value)
-random.seed(seed_value)# 2. Seed python built-in pseudo-random generator
-np.random.RandomState(seed_value)# 3. Seed numpy pseudo-random generator
-
-# Setup train and test splits
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
-x_train = x_train/255.0
-x_test = x_test/255.0
-
-x = np.concatenate((x_train,x_test))
-y = np.concatenate((y_train,y_test))
-
-# Split based on input random seeds
-train_size = 0.8
-
-x_train, x_test, y_train, y_test = train_test_split(x,y,train_size=train_size,random_state=random_state)
-
-x_train = x_train.reshape((-1,28,28,1))
-x_test = x_test.reshape((-1,28,28,1))
-
-# Set number of categories
-num_category = 10
-
-# Convert class vectors to binary class matrices
-y_train = keras.utils.to_categorical(y_train, num_category)
-y_test = keras.utils.to_categorical(y_test, num_category)
-
 model_name = 'pretrain' # can be changed to random or retrain
 
 if model_name == 'retrain':

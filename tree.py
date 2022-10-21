@@ -57,21 +57,19 @@ class Tree(_T, Node):
         if node.terminal: 
             return set()
 
-        lst = [[i] for i in range(0,784)]
+        tup = np.array(node.tup)
 
-        pairs = [[i,i] for i in range(0,784)]
-
-        dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
+        tup = tup.reshape((-1,28,28,1))
 
         to_be_acquired = []
-        for j in range(len(lst)):
-            lst_to_be_checked = lst[j]
-            if node.tup[lst_to_be_checked[0]] == -1:
-                to_be_acquired.append(lst_to_be_checked[0])
 
-        dct_indx = [i for i, features in enumerate(lst) for j, val in enumerate(to_be_acquired) if val in features]
+        for k in range(49):
+            row_action = int(k/7.0) ##row action
+            column_action = int(k - row_action*7.0) ##
+            if np.allclose(tup[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
+                to_be_acquired.append(k) #already acquired
 
-        num_features = list(set(dct_indx))
+        num_features = list(set([i for i in range(49)]) - set(to_be_acquired))
 
         return {
             node.make(value,i,X_train) for j, value in enumerate(num_features)
@@ -82,6 +80,10 @@ class Tree(_T, Node):
         if node.terminal:
             return None 
 
+        tup = np.array(node.tup)
+
+        tup = tup.reshape((-1,28,28,1))
+
         lst = [[i] for i in range(0,784)]
 
         pairs = [[i,i] for i in range(0,784)]
@@ -89,21 +91,27 @@ class Tree(_T, Node):
         dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
 
         to_be_acquired = []
-        for j in range(len(lst)):
-            lst_to_be_checked = lst[j]
-            if node.tup[lst_to_be_checked[0]] == -1:
-                to_be_acquired.append(lst_to_be_checked[0])
 
-        dct_indx = [k for k, features in enumerate(lst) for j, val in enumerate(to_be_acquired) if val in features]
+        for k in range(49):
+            row_action = int(k/7.0) ##row action
+            column_action = int(k - row_action*7.0) ##
+            if np.allclose(tup[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
+                to_be_acquired.append(k) #already acquired
 
-        num_features = list(set(dct_indx))
+        num_features = list(set([i for i in range(49)]) - set(to_be_acquired))
 
-        return node.make(random.choice(num_features),i,X_train) #one random child node
+        action = random.choice(num_features)
 
-    def reward(state,model_sk):
+        return node.make(action,i,X_train)#, action #one random child node
+
+    def reward(node,model_sk,X_train,i):
 
         cost = 0
         total_cost = 784.0
+
+        tup = np.array(node.tup)
+
+        tup = tup.reshape((-1,28,28,1))
 
         lst = [[i] for i in range(0,784)]
 
@@ -111,70 +119,29 @@ class Tree(_T, Node):
 
         dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
 
-        acquired = []
-        for k in range(len(lst)):
-            lst_to_be_checked = lst[k]
-        #if lst_to_be_checked[0] <= 33 and tup[lst_to_be_checked[0]] != 1:
-        #    acquired.append(lst_to_be_checked[0])
-            if state.tup[lst_to_be_checked[0]] != -1:
-                acquired.append(lst_to_be_checked[0])
+        to_be_acquired = []
 
-        dct_indx = [i for i, features in enumerate(lst) for j, val in enumerate(acquired) if val in features]
+        for z in range(49):
+            row_action = int(z/7.0) ##row action
+            column_action = int(z - row_action*7.0)
+            if np.allclose(tup[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
+                to_be_acquired.append(z) #already acquired
 
-        num_features = list(set(dct_indx))
+        num_features = list(set(to_be_acquired))
 
         for i in range(len(num_features)):
-            cost += 1
+            cost += 16
 
-        state = np.asarray(state.tup).flatten()
+        state = np.asarray(node.tup).flatten()
 
-        indx = [dict_lst[feature] for feature in dct_indx]
-        flat_list = [item for sublist in indx for item in sublist]
-
-        if cost_name == 'fit':
-            if flat_list:
-                if len(flat_list) < 54:
-                    if tuple(flat_list) in model_fit:
-                        model = model_fit[tuple(flat_list)]
-                        state = np.array([val for i,val in enumerate(state) for j,index in enumerate(flat_list) if i == index])
-                    else:
-                        model = model_sk
-                else:
-                        model = model_sk
-            else:
-                model = model_sk
-        else:
-            model = model_sk
-            
-        if cost_name == 'quadratic':
-            if further_name == 'end':
-                state = np.array([quad_end(cost) if state[i] == -1.0 else state[i] for i in range(len(state))])
-            else:
-                state = np.array([quad_beg(cost) if state[i] == -1.0 else state[i] for i in range(len(state))])
-        elif cost_name == 'linear':
-            state = np.array([linear_function(cost) if state[i] == -1.0 else state[i] for i in range(len(state))])
-        else:
-            state = np.array([constant() if state[i] == -1.0 else state[i] for i in range(len(state))])
-
-        # X = state
-
-        # W = model.get_weights()
-        # X      = X.reshape((-1,X.shape[0]))           #Flatten
-        # X      = X @ W[0] + W[1]                      #Dense
-        # X[X<0] = 0                                    #Relu
-        # X      = X @ W[2] + W[3]                      #Dense
-        # X[X<0] = 0                                    #Relu
-        # X      = X @ W[4] + W[5]                      #Dense
-        # X[X<0] = 0                                    #Relu
-        # X      = X @ W[6] + W[7]                      #Dense
-        # X[X<0] = 0                                    #Relu
-        # X      = np.exp(X)/np.exp(X).sum(1)[...,None] #Softmax
-
-        #model = model_sk
-        state = state.reshape(1,-1)
-        classification = model.predict(state) #0 or 1
-        prob = model.predict_proba(state).flatten()
-        classification = prob[classification[0]]
+        #state = state.reshape(1,-1)
+        #classification = model_sk.predict(state) #0 or 1
+        #prob = model_sk.predict_proba(state).flatten()
+        #classification = prob[classification[0]]
+        state = state.reshape((-1,28,28,1))
+        classification = model_sk(state,training=False)#.predict(state)
+        classification = classification[0]
+        classification = np.max(classification)#classification[Y_train[m]]#int(classification[0])]
         #classification = np.max(X)
         cost = (cost + 1.0)/(total_cost + 1.0) #cost always increasing from 0 to 1
         return_value = classification/cost
@@ -185,30 +152,33 @@ class Tree(_T, Node):
     def is_terminal(node):
         return node.terminal
 
-    def make(vec,action,i,X_train): #action from 0 to 15
-        
+    def make(node,action,i,X_train): #action from 0 to 15
+
         lst = [[i] for i in range(0,784)]
 
         pairs = [[i,i] for i in range(0,784)]
 
         dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
 
-        val = tuple([X_train.iloc[i,dict_lst[action][j]] for j,value in enumerate(dict_lst[action])])
+        row_action = int(action/7.0) ##row action
 
-        tup = vec.tup[:dict_lst[action][0]] + val + vec.tup[dict_lst[action][-1]+1:]
+        column_action = int(action - row_action*7.0) ##
+
+        vec = np.array(node.tup)
+
+        vec = vec.reshape((-1,28,28,1))
+
+        vec[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)] = X_train[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1),:]
 
         acquired = []
-        for k in range(len(lst)):
-            lst_to_be_checked = lst[k]
-        #if lst_to_be_checked[0] <= 33 and tup[lst_to_be_checked[0]] != 1:
-        #    acquired.append(lst_to_be_checked[0])
-            if tup[lst_to_be_checked[0]] != -1:
-                acquired.append(lst_to_be_checked[0])
+        for k in range(49):
+            row_action = int(k/7.0) ##row action
+            column_action = int(k - row_action*7.0) ##
+            if np.allclose(vec[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
+                acquired.append(k) #already acquired
 
-        dct_indx = [i for i, features in enumerate(lst) for j, val in enumerate(acquired) if val in features]
+        is_terminal = len(acquired) == 49
 
-        num_features = list(set(dct_indx))
-
-        is_terminal = len(num_features) == 784
+        vec = vec.reshape((-1,784))
         
-        return Tree(tup, is_terminal) #new node
+        return Tree(tuple(vec[0]), is_terminal) #new node

@@ -213,62 +213,68 @@ import time
 
 loss_train = [loss_train_model]
 acc_train = [train_acc_model]
-loss_val = [loss_test_model]
+loss_val = [loss_val_model]
 acc_val = [val_acc_model]
 
-for epoch in range(epochs):
-    print("\nStart of epoch %d" % (epoch,))
-    start_time = time.time()
-    loss_train_epoch = 0.0
-    # Iterate over the batches of the dataset.
-    for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
-        loss_value = train_step(x_batch_train, y_batch_train)
-        loss_train_epoch += loss_value
-    loss_train_epoch /= (step+1)
-    loss_train.append(loss_train_epoch)
 
-    # Display metrics at the end of each epoch.
-    train_acc = train_acc_metric.result()
-    acc_train.append(train_acc)
+def train(epochs,train_dataset,val_dataset,loss_train,acc_train,loss_val,acc_val,model_name):
 
-    print("Training acc over epoch: %.4f" % (float(train_acc),))
-    print("Training loss over epoch: %.4f" % (float(loss_train_epoch),))
+	for epoch in range(epochs):
+		
+		print("\nStart of epoch %d" % (epoch,))
+		start_time = time.time()
+		loss_train_epoch = 0.0
 
-    # Reset training metrics at the end of each epoch
-    train_acc_metric.reset_states()
+		# Iterate over the batches of the dataset.
+		for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
+			loss_value = train_step(x_batch_train, y_batch_train)
+			loss_train_epoch += loss_value
+		loss_train_epoch /= (step+1)
+		loss_train.append(loss_train_epoch)
 
-    loss_val_epoch = 0.0
-    # Run a validation loop at the end of each epoch.
-    for step_val, (x_batch_val, y_batch_val) in enumerate(val_dataset):
-        loss_value_val = val_step(x_batch_val, y_batch_val)
-        loss_val_epoch += loss_value_val
-    loss_val_epoch /= (step_val+1)
-    loss_val.append(loss_val_epoch)
+		# Display metrics at the end of each epoch.
+		train_acc = train_acc_metric.result()
+		acc_train.append(train_acc)
 
-    val_acc = val_acc_metric.result()
+		print("Training acc over epoch: %.4f" % (float(train_acc),))
+		print("Training loss over epoch: %.4f" % (float(loss_train_epoch),))
 
-    test_acc = test_acc_metric.result()
+		# Reset training metrics at the end of each epoch
+		train_acc_metric.reset_states()
 
-    if not any(i >= val_acc for i in acc_val):
-       print('Saving')
-       model_name = "mnist_cnn_" + str(random_state) + '_' + str(seed_value)
-       symbolic_weights = getattr(model.optimizer, 'weights')
-       weight_values = K.batch_get_value(symbolic_weights)
-       opt_name = model_name + '_optimizer.pkl'
-       with open(opt_name, 'wb') as f:
-           pickle.dump(weight_values, f)
-       weight_name = model_name + '.h5'
-       model.save_weights(weight_name)
+		loss_val_epoch = 0.0
+		# Run a validation loop at the end of each epoch.
+		for step_val, (x_batch_val, y_batch_val) in enumerate(val_dataset):
+			loss_value_val = val_step(x_batch_val, y_batch_val)
+			loss_val_epoch += loss_value_val
+		loss_val_epoch /= (step_val+1)
+		loss_val.append(loss_val_epoch)
 
-    acc_val.append(val_acc)
+		val_acc = val_acc_metric.result()
 
-    print("Validation acc: %.4f" % (float(val_acc),))
-    print("Validation loss: %.4f" % (float(loss_val_epoch),))
+		test_acc = test_acc_metric.result()
 
-    print("Test acc: %.4f" % (float(test_acc),))
+		if not any(i >= val_acc for i in acc_val):
+			print('Saving')
+			symbolic_weights = getattr(model.optimizer, 'weights')
+			weight_values = K.batch_get_value(symbolic_weights)
+			opt_name = model_name + '_optimizer.pkl'
+			with open(opt_name, 'wb') as f:
+				pickle.dump(weight_values, f)
+			weight_name = model_name + '.h5'
+			model.save_weights(weight_name)
 
-    val_acc_metric.reset_states()
-    
-    test_acc_metric.reset_states()
+		acc_val.append(val_acc)
 
-    print("Time taken: %.2fs" % (time.time() - start_time))
+		print("Validation acc: %.4f" % (float(val_acc),))
+		print("Validation loss: %.4f" % (float(loss_val_epoch),))
+
+		print("Test acc: %.4f" % (float(test_acc),))
+
+		val_acc_metric.reset_states()
+		
+		test_acc_metric.reset_states()
+
+		print("Time taken: %.2fs" % (time.time() - start_time))
+
+		return loss_train, loss_val, acc_train, acc_val
