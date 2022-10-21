@@ -12,13 +12,10 @@ import pickle
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.datasets import mnist
-#from tensorflow.keras.utils import set_random_seed
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Lambda
 from tensorflow.keras.models import Sequential
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam
-#from tensorflow.keras.regularizers import l2
-#from tensorflow.keras.regularizers import l1_l2
 
 random_state = 1
 seed_value = 12321
@@ -37,21 +34,17 @@ x_test = x_test/255.0
 x = np.concatenate((x_train,x_test))
 y = np.concatenate((y_train,y_test))
 
+#Split based on input random seeds
 train_size = 0.8
 
 x_train, x_test, y_train, y_test = train_test_split(x,y,train_size=train_size,random_state=random_state)
 
-#x_train = x_train.reshape((-1,28,28,1))
-#x_test = x_test.reshape((-1,28,28,1))
-
-x_train = x_train.reshape((-1,784))
-x_test = x_test.reshape((-1,784))
-
-x_train = pd.DataFrame(x_train)
-x_test = pd.DataFrame(x_test)
+x_train = x_train.reshape((-1,28,28,1))
+x_test = x_test.reshape((-1,28,28,1))
 
 #set number of categories
 num_category = 10
+
 # convert class vectors to binary class matrices
 y_train = keras.utils.to_categorical(y_train, num_category)
 y_test = keras.utils.to_categorical(y_test, num_category)
@@ -60,7 +53,6 @@ tf.random.set_seed(seed_value)
 
 model = Sequential()
 
-#model.add(Lambda(standardize,input_shape=(28,28,1)))    
 model.add(Conv2D(filters=64, kernel_size = (3,3), dilation_rate = (2,2), padding = 'same', activation="relu", input_shape=(28,28,1)))
 model.add(MaxPooling2D(pool_size=(2,2)))
 
@@ -89,17 +81,9 @@ model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=["accur
 
 def num_features(state):
 
-    lst = [[i] for i in range(0,784)]
-
-    pairs = [[i,i] for i in range(0,784)]
-
-    dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
-
     acquired = []
     for k in range(len(lst)):
         lst_to_be_checked = lst[k]
-        #if lst_to_be_checked[0] <= 33 and tup[lst_to_be_checked[0]] != 1:
-        #    acquired.append(lst_to_be_checked[0])
         if state[lst_to_be_checked[0]] != -1:
             acquired.append(lst_to_be_checked[0])
 
@@ -133,7 +117,6 @@ def make_test(action,vec,i):
 
     return np.asarray(tup)
 
-
 def cost(state):
 
     cost = 0
@@ -145,42 +128,19 @@ def cost(state):
 
     return cost
 
-def get_mask(s):
-
-    lst = [i for i in range(0,784)]
-
-    #pairs = [[i,i] for i in range(0,784)]
-
-    #dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
-
-    full_features = [i for i in range(0,784)]
-
-    to_be_acquired = [lst[i] for i in range(len(lst)) if s[lst[i]] == -1.0]
-
-    mask = [0 if full_features[k] in to_be_acquired else 1 for k in range(len(full_features))]
-
-    mask = np.array(mask,dtype='f')
-
-    return mask
-
 x_train_new = []
 x_test_new = []
 
 total_cost = 784.0
-
-#coeff = 0
 
 m,n = x_train.shape
 for i in range(m):
     print(i)
     cost_rand = random.choice(np.arange(785))
     lst_rand = random.sample([i for i in range(0,784)],cost_rand)
-    tp = (1,)*784
+    tp = (0.0,)*784
     state = np.array(tp,dtype=np.float64)
     state = make_train(lst_rand,state,i)
-    #mask_state = get_mask(state)
-    #state = np.concatenate((state,mask_state))
-    #state = np.array([quad_end(total_cost,coeff,cost_rand) if state[i] == -1.0 else state[i] for i in range(len(state))])
     x_train_new.append(state)
     #print(cost(state))
 
@@ -189,13 +149,10 @@ for i in range(m):
     print(i)
     cost_rand = random.choice(np.arange(785))
     lst_rand = random.sample([i for i in range(0,784)],cost_rand)
-    tp = (1,)*784
+    tp = (0.0,)*784
     state = np.array(tp,dtype=np.float64)
     state = make_test(lst_rand,state,i)
-    #mask = get_mask(state)
-    #state = np.concatenate((state,mask))
     x_test_new.append(state)
-    #print(cost(state))
 
 x_train_new = np.array(x_train_new)
 x_test_new = np.array(x_test_new)
@@ -216,16 +173,14 @@ test_acc_metric = keras.metrics.CategoricalAccuracy()
 val_dataset = tf.data.Dataset.from_tensor_slices((x_test_new, y_test))
 val_dataset = val_dataset.batch(batch_size)
 
-#test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
-#test_dataset = test_dataset.batch(batch_size)
-
+#compilte the model 
 model.compile(optimizer=optimizer, loss=loss_fn, metrics = [train_acc_metric])
 
+#define manual tranining and inference functions 
 @tf.function
 def train_step(x, y):
     with tf.GradientTape() as tape:
         logits = model(x, training=True)
-        #logits = tf.reshape(logits,(-1,10))
         loss_value = loss_fn(y, logits)
     grads = tape.gradient(loss_value, model.trainable_weights)
     optimizer.apply_gradients(zip(grads, model.trainable_weights))
@@ -235,7 +190,6 @@ def train_step(x, y):
 @tf.function
 def val_step(x, y):
     val_logits = model(x, training=False)
-    #val_logits = tf.reshape(val_logits,(-1,10))
     loss_value = loss_fn(y,val_logits)
     val_acc_metric.update_state(y, val_logits)
     return loss_value
@@ -243,13 +197,13 @@ def val_step(x, y):
 @tf.function
 def test_step(x, y):
     test_logits = model(x, training=False)
-    #test_logits = tf.reshape(test_logits,(-1,10))
     loss_value = loss_fn(y,test_logits)
     test_acc_metric.update_state(y, test_logits)
     return loss_value
 
 loss_train_model = 0.0
 for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
+    #define the loss based on initial weights
     check = np.ones((y_batch_train.shape[0],784))
     check = np.reshape(check,(-1,28,28,1))
     loss_value = test_step(check, y_batch_train)
@@ -257,15 +211,16 @@ for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
 loss_train_model /= (step+1)
 
 # Display metrics at the end of each epoch.
-train_acc_model = val_acc_metric.result()
+train_acc_model = train_acc_metric.result()
 
-loss_test_model = 0.0
+loss_val_model = 0.0
 for step_val, (x_batch_val, y_batch_val) in enumerate(val_dataset):
-    check = np.ones((y_batch_val.shape[0],784))
+    #define the loss based on initial weights
+    check = np.zeros((y_batch_val.shape[0],784))
     check = np.reshape(check,(-1,28,28,1))
     loss_value = test_step(check, y_batch_val)
-    loss_test_model += loss_value
-loss_test_model /= (step_val+1)
+    loss_val_model += loss_value
+loss_val_model /= (step_val+1)
 
 # Display metrics at the end of each epoch.
 val_acc_model = val_acc_metric.result()
