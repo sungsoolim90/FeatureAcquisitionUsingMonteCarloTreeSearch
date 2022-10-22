@@ -6,7 +6,7 @@ input: [2] = seed value
 input: [3] = Number of epochs for CNN training
 input: [4] = batch size for CNN training
 input: [5] = cnn or lr
-input: [6] = Boolean for random strategy (optional)
+input: [6] = Boolean for random strategy
 
 outputs:
 
@@ -47,7 +47,7 @@ try:
 	random_strategy = sys.argv[6].lower() == 'true'
 	model_name = 'random'
 except IndexError:
-	random_strategy = 'False'
+	random_strategy = False
 	model_name = ''
 
 # Set a seed value
@@ -70,13 +70,9 @@ train_size = 0.8
 x_train, x_test, y_train, y_test = train_test_split(x,y,train_size=train_size,random_state=random_state)
 x_train, x_val, y_train, y_val = train_test_split(x_train,y_train,train_size=train_size,random_state=random_state)
 
-# Set number of categories
-num_category = 10
-
-# Convert class vectors to binary class matrices
-y_train = keras.utils.to_categorical(y_train, num_category)
-y_val = keras.utils.to_categorical(y_val, num_category)
-y_test = keras.utils.to_categorical(y_test, num_category)
+x_train = x_train.reshape((-1,28,28,1))
+x_val = x_val.reshape((-1,28,28,1))
+x_test = x_test.reshape((-1,28,28,1))
 
 if random_strategy:
 	# Random strategy
@@ -86,15 +82,17 @@ if random_strategy:
 
 	def make(action,vec,i,x_set):
 
-		tup = tuple(vec)
+		vec = vec.reshape((-1,28,28,1))
 
 		for j in range(len(action)):
 
-			val = tuple([x_set[i,action[j]]])
+			row_action = int(action[j]/7.0) ##row action
 
-			tup = tup[:action[j]] + val + tup[action[j]+1:]
+			column_action = int(action[j] - row_action*7.0) ##column action
 
-		return np.asarray(tup)
+			vec[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)] = x_set[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1),:]
+
+		return vec#vec.reshape((-1,28,28,1))#np.asarray(vec)
 
 	print('Creating random feature subset training and test data sets.\n')
 	x_train_random = []
@@ -104,7 +102,7 @@ if random_strategy:
 	action_space = [i for i in range(49)]
 
 	for i in range(len(x_train)):
-		print(i)
+		#print(i)
 		tp = (0.0,)*784
 		# Set a number of features in each training sample
 		action_rand = random.choice(action_space)
@@ -114,7 +112,7 @@ if random_strategy:
 		x_train_random.append(state)
 
 	for i in range(len(x_val)):
-		print(i)
+		#print(i)
 		tp = (0.0,)*784
 		# Set a number of features in each validation sample
 		action_rand = random.choice(action_space)
@@ -133,35 +131,32 @@ if model_type == 'lr':
 
 	print('Training logistic regression\n')
 
-	# Create regularization penalty space
-	penalty = ['l1', 'l2','none']
-
-	# Create regularization hyperparameter space
-	C = np.logspace(0, 4, 10)
-
-	solver = ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']
-
-	iter_num = [100, 1000, 10000, 100000]
+	#parameters = [{'solver': ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']},
+	#			  {'penalty':['none', 'elasticnet', 'l1', 'l2']},
+	#			  {'C':[0.001, 0.01, 0.1, 1, 10, 100]}, 
+	#			  {'max_iter': [100,1000,10000]}]
 
 	# Create hyperparameter options
-	grid_values = dict(C=C, penalty=penalty,solver=solver,max_iter=iter_num)
+	#grid_values = dict(C=C, penalty=penalty,solver=solver,max_iter=iter_num)
 
-	model_sk = sk(random_state = seed_value)
-	logreg_cv = GridSearchCV(model_sk,grid_values,cv=5)
+	#model_sk = sk(random_state = seed_value)
+	#logreg_cv = GridSearchCV(model_sk,parameters,cv=5)
 
 	if not random_strategy:
 		#Pretrain and Retrain
-		logreg_cv.fit(x_train, y_train)
-		print('Tuned hyperparameters :(best parameters)\n',logreg_cv.best_params_)
-		print('Accuracy :\n',logreg_cv.best_score_)
 		
-		model = sk(C = logreg_cv.best_params_['C'],solver = logreg_cv.best_params_['solver'], max_iter = logreg_cv.best_params_['max_iter'], penalty = logreg_cv.best_params_['penalty'])
+		#logreg_cv.fit(x_train, y_train)
+		#print('Tuned hyperparameters :(best parameters)\n',logreg_cv.best_params_)
+		#print('Accuracy :\n',logreg_cv.best_score_)
+		
+		model = sk(random_state = seed_value,max_iter=10000)
+		#C = logreg_cv.best_params_['C'],solver = logreg_cv.best_params_['solver'], max_iter = logreg_cv.best_params_['max_iter'], penalty = logreg_cv.best_params_['penalty'])
 		
 		model.fit(x_train, y_train)
 		predictions = model.predict(x_val)
 
-		print('Confusion matrix of fitted logistic regression: \n',metrics.confusion_matrix(y_test, predictions))
-		print('F1 score: \n', metrics.f1_score(y_test,predictions,average='micro'))
+		print('Confusion matrix of fitted logistic regression: \n',metrics.confusion_matrix(y_val, predictions))
+		print('F1 score: \n', metrics.f1_score(y_val,predictions,average='micro'))
 
 		filename = 'finalized_model_mnist_' + str(random_state) + '_' + str(seed_value) + '.sav'
 		pickle.dump(model, open(filename, 'wb'))
@@ -169,30 +164,37 @@ if model_type == 'lr':
 	else:
 
 		x_train_random = x_train_random.reshape((-1,784))
-		x_test_random = x_test_random.reshape((-1,784))
+		x_val_random = x_val_random.reshape((-1,784))
 
-		logreg_cv.fit(x_train_random, y_train)
-		print('Tuned hyperparameters :(best parameters)\n',logreg_cv.best_params_)
-		print('Accuracy :\n',logreg_cv.best_score_)
+		#logreg_cv.fit(x_train_random, y_train)
+		#print('Tuned hyperparameters :(best parameters)\n',logreg_cv.best_params_)
+		#print('Accuracy :\n',logreg_cv.best_score_)
 		
-		model = sk(C = logreg_cv.best_params_['C'],solver = logreg_cv.best_params_['solver'], max_iter = logreg_cv.best_params_['max_iter'], penalty = logreg_cv.best_params_['penalty'])
+		model = sk(random_state=seed_value,max_iter=10000)
+		#C = logreg_cv.best_params_['C'],solver = logreg_cv.best_params_['solver'], max_iter = logreg_cv.best_params_['max_iter'], penalty = logreg_cv.best_params_['penalty'])
 		
 		model.fit(x_train_random, y_train)
-		predictions = model.predict(x_test_random)
+		predictions = model.predict(x_val_random)
 
-		print('Confusion matrix of fitted logistic regression: \n',metrics.confusion_matrix(y_test, predictions))
-		print('F1 score: \n', metrics.f1_score(y_test,predictions,average='micro'))
+		print('Confusion matrix of fitted logistic regression: \n',metrics.confusion_matrix(y_val, predictions))
+		print('F1 score: \n', metrics.f1_score(y_val,predictions,average='micro'))
 
 		filename = 'finalized_model_mnist_random_' + str(random_state) + '_' + str(seed_value) + '.sav'
 		pickle.dump(model, open(filename, 'wb'))
 
 else:
 
-	x_train = x_train.reshape((-1,28,28,1))
-	x_val = x_val.reshape((-1,28,28,1))
-	x_test = x_test.reshape((-1,28,28,1))
+	#x_train = x_train.reshape((-1,28,28,1))
+	#x_val = x_val.reshape((-1,28,28,1))
+	#x_test = x_test.reshape((-1,28,28,1))
 
-	batch_size = 256
+	# Set number of categories
+	num_category = 10
+
+	# Convert class vectors to binary class matrices
+	y_train = keras.utils.to_categorical(y_train, num_category)
+	y_val = keras.utils.to_categorical(y_val, num_category)
+	y_test = keras.utils.to_categorical(y_test, num_category)
 
 	model = Sequential()
 
@@ -320,7 +322,7 @@ else:
 
 			print("Time taken: %.2fs" % (time.time() - start_time))
 
-			return loss_train, loss_val, acc_train, acc_val
+		return loss_train, loss_val, acc_train, acc_val
 
 	if not random_strategy:
 
@@ -330,6 +332,7 @@ else:
 
 		val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 		val_dataset = val_dataset.shuffle(buffer_size=1024).batch(batch_size)
+		#val_dataset = val_dataset.batch(batch_size)
 
 		cnn_name = 'mnist_cnn_' + str(random_state) + '_' + str(seed_value)
 
@@ -338,7 +341,7 @@ else:
 	else:
 
 		x_train_random = x_train_random.reshape((-1,28,28,1))
-		x_val_random = x_test_random.reshape((-1,28,28,1))
+		x_val_random = x_val_random.reshape((-1,28,28,1))
 
 		# Prepare the training dataset.
 		train_dataset = tf.data.Dataset.from_tensor_slices((x_train_random, y_train))

@@ -216,6 +216,7 @@ acc_train = [train_acc_model]
 loss_val = [loss_val_model]
 acc_val = [val_acc_model]
 
+model_name = 'mnist_cnn_' + str(random_state) + '_' + str(seed_value)
 
 def train(epochs,train_dataset,val_dataset,loss_train,acc_train,loss_val,acc_val,model_name):
 
@@ -277,4 +278,6 @@ def train(epochs,train_dataset,val_dataset,loss_train,acc_train,loss_val,acc_val
 
 		print("Time taken: %.2fs" % (time.time() - start_time))
 
-		return loss_train, loss_val, acc_train, acc_val
+	return loss_train, loss_val, acc_train, acc_val
+
+loss_train, loss_val, acc_train, acc_val = train(epochs,train_dataset,val_dataset,loss_train,acc_train,loss_val,acc_val,model_name)
