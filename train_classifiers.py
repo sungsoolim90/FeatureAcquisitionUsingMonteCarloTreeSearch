@@ -6,7 +6,7 @@ input: [2] = seed value
 input: [3] = Number of epochs for CNN training
 input: [4] = batch size for CNN training
 input: [5] = cnn or lr
-input: [6] = Boolean for random strategy
+input: [6] = Boolean for random strategy (optional)
 
 outputs:
 
@@ -158,9 +158,6 @@ if model_type == 'lr':
 		print('Confusion matrix of fitted logistic regression: \n',metrics.confusion_matrix(y_val, predictions))
 		print('F1 score: \n', metrics.f1_score(y_val,predictions,average='micro'))
 
-		filename = 'finalized_model_mnist_' + str(random_state) + '_' + str(seed_value) + '.sav'
-		pickle.dump(model, open(filename, 'wb'))
-
 	else:
 
 		x_train_random = x_train_random.reshape((-1,784))
@@ -179,14 +176,10 @@ if model_type == 'lr':
 		print('Confusion matrix of fitted logistic regression: \n',metrics.confusion_matrix(y_val, predictions))
 		print('F1 score: \n', metrics.f1_score(y_val,predictions,average='micro'))
 
-		filename = 'finalized_model_mnist_random_' + str(random_state) + '_' + str(seed_value) + '.sav'
-		pickle.dump(model, open(filename, 'wb'))
+	filename = 'mnist_lr_' + model_name + '_' + str(random_state) + '_' + str(seed_value) + '.h5'
+	pickle.dump(model, open(filename, 'wb'))
 
 else:
-
-	#x_train = x_train.reshape((-1,28,28,1))
-	#x_val = x_val.reshape((-1,28,28,1))
-	#x_test = x_test.reshape((-1,28,28,1))
 
 	# Set number of categories
 	num_category = 10
@@ -332,11 +325,6 @@ else:
 
 		val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
 		val_dataset = val_dataset.shuffle(buffer_size=1024).batch(batch_size)
-		#val_dataset = val_dataset.batch(batch_size)
-
-		cnn_name = 'mnist_cnn_' + str(random_state) + '_' + str(seed_value)
-
-		loss_train, loss_val, acc_train, acc_val = train(epochs,train_dataset,val_dataset,loss_train,acc_train,loss_val,acc_val,cnn_name)
 
 	else:
 
@@ -350,9 +338,9 @@ else:
 		val_dataset = tf.data.Dataset.from_tensor_slices((x_val_random, y_val))
 		val_dataset = val_dataset.shuffle(buffer_size=1024).batch(batch_size)
 
-		cnn_name = 'mnist_cnn_random_' + str(random_state) + '_' + str(seed_value)
+	cnn_name = 'mnist_cnn_' + model_name + '_' + str(random_state) + '_' + str(seed_value)
 
-		loss_train, loss_val, acc_train, acc_val = train(epochs,train_dataset,val_dataset,loss_train,acc_train,loss_val,acc_val,cnn_name)
+	loss_train, loss_val, acc_train, acc_val = train(epochs,train_dataset,val_dataset,loss_train,acc_train,loss_val,acc_val,cnn_name)
  
 # Output training data to file
 print('random_state:\n', random_state)

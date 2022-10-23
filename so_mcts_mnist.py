@@ -2,35 +2,22 @@ from multiprocessing import Pool
 from multiprocess import Pool as mp
 from monte_carlo_tree_search import MCTS, Node
 from tree import Tree
+
 from sklearn.linear_model import LogisticRegression as sk
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+
 import numpy as np
 import pandas as pd
 import time
 import collections, functools, operator 
 import pickle
 import json
-
-from parameters_MCTS_SO import*
-
-from imblearn.over_sampling import SMOTENC
-from imblearn.under_sampling import RandomUnderSampler
-from imblearn.pipeline import Pipeline
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer
-
-import tensorflow as tf
-
 import random
-
-#pd.options.mode.chained_assignment = None  # default='warn'
-
-import json
-import matplotlib.pyplot as plt
-
 import heapq
+
+
+from parameters_MCTS import*
+
 
 #Set a seed value
 import os
@@ -313,64 +300,6 @@ def train_sk(train_dataset,val_dataset):
 
     return loss_train, loss_test, acc_train, acc_test
 
-def quad_beg(cost):
-    a = (coeff) / (total_cost) ** 2 # c = value at high cost, d = high cost (41), k,h=0
-    y = a * (cost) ** 2
-    return y
-
-def linear_function(cost): #c = coeff, d = high cost, h = 0, k = 0
-    a = coeff / total_cost
-    y = a*cost
-    return y
-
-def quad_end(cost):
-    a = -coeff / total_cost ** 2#-y_1/x_1 **2
-    b = 2 * coeff / total_cost #2*y_1/x_1
-    y = a * cost ** 2 + b * cost
-    return y
-
-def constant():
-    return coeff
-
-def cost(state):
-
-    cost = 0
-    total_cost = 784.0
-
-    #tup = np.array(state.tup)
-
-    #state = state.reshape((-1,4,4,1))
-
-    lst = [[i] for i in range(0,784)]
-
-    pairs = [[i,i] for i in range(0,784)]
-
-    dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
-
-    to_be_acquired = []
-
-    for k in range(49):
-        if state[k].any() != 1.0:
-            to_be_acquired.append(k)
-            
-    # for j in range(len(lst)):
-    #     lst_to_be_checked = lst[j]
-    #     if node.tup[lst_to_be_checked[0]] == -1:
-    #         to_be_acquired.append(lst_to_be_checked[0])
-
-    # to_be_acquired = [int(to_be_acquired[i]/7.0) for i in range(len(to_be_acquired))]
-
-    # dct_indx = [i for i, features in enumerate(lst) for j, val in enumerate(to_be_acquired) if val in features]
-
-    num_features = list(set(to_be_acquired))
-
-    for i in range(len(num_features)):
-        cost += 16
-
-    return cost
-
-import heapq
-
 if integrated: 
 
     import tensorflow as tf
@@ -633,31 +562,6 @@ if integrated:
 
         print(scores)
         return keys, scores
-
-#coeff = -100
-
-total_cost = 784.0
-
-indx = []
-for j in range(10):
-    l = np.where(y_train == j)
-    for j in range(2):#len(l[0])):
-        indx.append(l[0][j])
-    #l = l[0][0]
-    #indx.append(l)
-
-x_train_new = []
-for j in range(len(indx)):
-    x = x_train[indx[j],:]
-    x_train_new.append(np.array(x))
-
-x_train_new = np.array(x_train_new)
-y_train_new = np.array(2*[i for i in range(10)])
-
-x_train_new_linear = x_train_new.reshape((-1,784))
-x_train_new_linear = pd.DataFrame(x_train_new_linear)
-
-y_train_new = np.sort(y_train_new)
 
 m,n,o,p = x_train_new.shape
 
