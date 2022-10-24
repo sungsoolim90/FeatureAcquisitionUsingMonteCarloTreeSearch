@@ -1,23 +1,17 @@
+"""
+This script implements the node class object for training
+1) find_children: find all children nodes of given node
+2) find_random_child: find a random child node of given node
+3) reward: find reward for a given acquisition action (vectorial in multiobjective training)
+4) make: make a new node given action
+
+"""
 from collections import namedtuple
 import random
-#from random import choice, uniform
-from monte_carlo_tree_search_mo_mnist import MCTS, Node
-
-import tensorflow as tf
-from tensorflow import keras
-import tensorflow.keras.backend as K
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.regularizers import l1_l2
-from tensorflow.keras import layers
-
+from monte_carlo_tree_search_mo import MCTS, Node
 import numpy as np
-import pickle
 
-import itertools
-import time
-
-from parameters_MCTS_MO import*
+from parameters_MCTS import*
 
 import os
 os.environ['PYTHONHASHSEED'] = str(seed_value)
@@ -60,19 +54,13 @@ class Tree(_T, Node):
 
         tup = tup.reshape((-1,28,28,1))
 
-        lst = [[i] for i in range(0,784)]
-
-        pairs = [[i,i] for i in range(0,784)]
-
-        dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
-
         to_be_acquired = []
 
         for k in range(49):
             row_action = int(k/7.0) ##row action
             column_action = int(k - row_action*7.0) ##
             if np.allclose(tup[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
-                to_be_acquired.append(k) #already acquired
+                to_be_acquired.append(k) 
 
         num_features = list(set([i for i in range(49)]) - set(to_be_acquired))
 
@@ -88,12 +76,6 @@ class Tree(_T, Node):
         tup = np.array(node.tup)
 
         tup = tup.reshape((-1,28,28,1))
-
-        lst = [[i] for i in range(0,784)]
-
-        pairs = [[i,i] for i in range(0,784)]
-
-        dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
 
         to_be_acquired = []
 
@@ -115,22 +97,16 @@ class Tree(_T, Node):
         cost = 0
         total_cost = 784.0
 
-        tup = np.array(node.tup)
+        state = np.array(node.tup).flatten()
 
-        tup = tup.reshape((-1,28,28,1))
-
-        lst = [[i] for i in range(0,784)]
-
-        pairs = [[i,i] for i in range(0,784)]
-
-        dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
+        state = state.reshape((-1,28,28,1))
 
         to_be_acquired = []
 
         for z in range(49):
             row_action = int(z/7.0) ##row action
             column_action = int(z - row_action*7.0)
-            if np.allclose(tup[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[j,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
+            if np.allclose(state[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[j,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
                 to_be_acquired.append(z) #already acquired
 
         num_features = list(set(to_be_acquired))
@@ -138,49 +114,14 @@ class Tree(_T, Node):
         for i in range(len(num_features)):
             cost += 16
 
-        state = np.asarray(node.tup).flatten()
+        try:
+            state = state.reshape((-1,784))
+            classification_prob = model_zero.predict_proba(state).flatten()
+        except AttributeError:
+            classification_prob = model_zero.predict(state).flatten()
 
-        # X = state
+        classification = classification_prob[y_train[j]]
 
-        # if cost_name == 'fit':
-        #     if flat_list:
-        #         W = model.get_weights()
-        #         X      = X.reshape((-1,X.shape[0]))           #Flatten
-        #         X      = X @ W[0] + W[1]                      #Dense
-        #         X[X<0] = 0                                    #Relu
-        #         X      = X @ W[2] + W[3]                      #Dense
-        #         X[X<0] = 0                                    #Relu
-        #         X      = X @ W[4] + W[5]                      #Dense
-        #         X[X<0] = 0                                    #Relu
-        #         X      = X @ W[6] + W[7]                      #Dense
-        #         X[X<0] = 0                                    #Relu
-        #         X      = np.exp(X)/np.exp(X).sum(1)[...,None] #Softmax
-        #     else:
-        #         W = model.get_weights()
-        #         X      = X.reshape((-1,X.shape[0]))           #Flatten
-        #         X      = X @ W[0] + W[1]                      #Dense
-        #         X[X<0] = 0                                    #Relu
-        #         X      = X @ W[2] + W[3]                      #Dense
-        #         X[X<0] = 0                                    #Relu
-        #         X      = X @ W[4] + W[5]                      #Dense
-        #         X[X<0] = 0                                    #Relu
-        #         X      = np.exp(X)/np.exp(X).sum(1)[...,None] #Softmax
-        # else:
-        #     W = model.get_weights()
-        #     X      = X.reshape((-1,X.shape[0]))           #Flatten
-        #     X      = X @ W[0] + W[1]                      #Dense
-        #     X[X<0] = 0                                    #Relu
-        #     X      = X @ W[2] + W[3]                      #Dense
-        #     X[X<0] = 0                                    #Relu
-        #     X      = X @ W[4] + W[5]                      #Dense
-        #     X[X<0] = 0                                    #Relu
-        #     X      = np.exp(X)/np.exp(X).sum(1)[...,None] #Softmax
-    
-        #classification = np.max(X)
-        #classification = model.predict(tup) #0 or 1
-        state = state.reshape(1,-1)
-        prob = model_zero.predict_proba(state).flatten()
-        classification = prob[y_train[j]]
         return classification
 
     def is_terminal(node):

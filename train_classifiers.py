@@ -6,7 +6,7 @@ input: [2] = seed value
 input: [3] = Number of epochs for CNN training
 input: [4] = batch size for CNN training
 input: [5] = cnn or lr
-input: [6] = Boolean for random strategy (optional)
+input: [6] = Boolean for random strategy
 
 outputs:
 
@@ -35,20 +35,31 @@ from tensorflow.keras.models import Sequential
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam
 
-import sys
+import argparse
 
-random_state = int(sys.argv[1])
-seed_value = int(sys.argv[2])
-batch_size = int(sys.argv[3])
-epochs = int(sys.argv[4])
-model_type = sys.argv[5]
+parser = argparse.ArgumentParser(
+    description='''Here are the arguments to train_classifiers.py. ''',
+    epilog="""Outputs \n
+    1) text files of mnist data set split based on random state \n
+    2) models (cnn or lr) trained on the split (1) with seed value.""")
+parser.add_argument('--rs', required =True, type=int, default=1, help='random state (required)')
+parser.add_argument('--sv', required = True, type=int, default=12321, help='seed value (reqired)')
+parser.add_argument('--mt', required = True, type=str, default='lr', help='model type: lr or cnn (required)')
+parser.add_argument('--st', required = False, type=bool, help='True or False for random strategy (optional)')
+parser.add_argument('--bs', required = False, type=int, help='batch size for CNN training (optional)')
+parser.add_argument('--e', required = False, type=int, help='number of epochs for CNN training (optional)')
 
-try:
-	random_strategy = sys.argv[6].lower() == 'true'
-	model_name = 'random'
-except IndexError:
-	random_strategy = False
-	model_name = ''
+args = parser.parse_args()
+
+if args.mt == 'cnn' and (args.bs is None or args.e is None):
+	parser.error("--mt == cnn requires --bs and --e.")
+
+random_state = args.rs
+seed_value = args.sv
+model_type = args.mt
+random_strategy = args.st
+batch_size = args.bs
+epochs = args.e
 
 # Set a seed value
 import os
@@ -123,6 +134,12 @@ if random_strategy:
 
 	x_train_random = np.array(x_train_random)
 	x_val_random = np.array(x_val_random)
+
+	model_name = 'random'
+
+else:
+
+	model_name = ''
 
 if model_type == 'lr':
 

@@ -7,7 +7,7 @@ b) Feature acquisition episode starts from the empty feature state and ends in t
 
 input: [1] = random state
 input: [2] = seed value
-input: [3] = Number of epochs for PPO training
+input: [3] = Number of epochs for DQN training
 input: [4] = lr or cnn for classifier
 input: [5] = Boolean for random strategy (optional)
 
@@ -41,18 +41,31 @@ import json
 import heapq
 from collections import deque
 
-import sys
+import argparse
 
-random_state = int(sys.argv[1])
-seed_value = int(sys.argv[2])
-num_epochs = int(sys.argv[3])
-classifier_name = sys.argv[4]
+parser = argparse.ArgumentParser(
+    description='''Here are the arguments to train_classifiers.py. ''',
+    epilog="""Outputs \n
+    1) text files of loss and cumulative rewards at end of training \n
+    2) DQN policy weights at end of each epoch\n
+    3) Inference samples.""")
+parser.add_argument('--rs', required =True, type=int, default=1, help='random state (required)')
+parser.add_argument('--sv', required = True, type=int, default=12321, help='seed value (reqired)')
+parser.add_argument('--mt', required = True, type=str, default='lr', help='model type: lr or cnn (required)')
+parser.add_argument('--e', required = True, type=int, default=10, help='number of epochs for PPO training (required)')
+parser.add_argument('--st', required = False, type=bool, help='random strategy: True or False (optional)')
 
-try:
-    random_strategy = sys.argv[5].lower() == 'true'
+args = parser.parse_args()
+
+random_state = args.rs
+seed_value = args.sv
+epochs = args.e
+model_type = args.mt
+random_strategy = args.st
+
+if random_strategy:
     model_name = 'random'
-except IndexError:
-    random_strategy = False
+else:
     model_name = ''
 
 retrain = 60000000 # no CNN retraining for pretrain and random
@@ -431,12 +444,12 @@ for j in range(num_epochs):
     reward_per_epoch = []
     loss_per_epoch =[]
 
-    # Define copies for retraining CNN
+    # Define copies for retraining classifier
     
     # X_train_z_copy = x_train.copy()
     # y_train_copy = y_train.copy()
 
-    # Define variables for retraining CNN
+    # Define variables for retraining classifier
     
     # purge_time = 1
     # retrain_time = 1

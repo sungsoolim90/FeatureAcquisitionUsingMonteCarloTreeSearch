@@ -44,19 +44,33 @@ import time
 import json
 import heapq
 
-import sys
+import argparse
 
-random_state = int(sys.argv[1])
-seed_value = int(sys.argv[2])
-num_epochs = int(sys.argv[3])
-update_timestep = int(sys.argv[4])
-classifier_name = sys.argv[5]
+parser = argparse.ArgumentParser(
+    description='''Here are the arguments to train_classifiers.py. ''',
+    epilog="""Outputs \n
+    1) text files of loss and cumulative rewards at end of training \n
+    2) PPO policy weights at end of each epoch\n
+    3) Inference samples.""")
+parser.add_argument('--rs', required =True, type=int, default=1, help='random state (required)')
+parser.add_argument('--sv', required = True, type=int, default=12321, help='seed value (reqired)')
+parser.add_argument('--mt', required = True, type=str, default='lr', help='model type: lr or cnn (required)')
+parser.add_argument('--uf', required = True, type=int, default=49, help='update frequency: 1 for AC, 49 for PG (required)')
+parser.add_argument('--e', required = True, type=int, default=10, help='number of epochs for PPO training (required)')
+parser.add_argument('--st', required = False, type=bool, help='random strategy: True or False (optional)')
 
-try:
-    random_strategy = sys.argv[6].lower() == 'true'
+args = parser.parse_args()
+
+random_state = args.rs
+seed_value = args.sv
+model_type = args.mt
+update_timestep = args.uf
+epochs = args.e
+random_strategy = args.st
+
+if random_strategy:
     model_name = 'random'
-except IndexError:
-    random_strategy = False
+else:
     model_name = ''
 
 if update_timestep == 1:
@@ -491,12 +505,12 @@ for j in range(num_epochs):
     reward_epoch = []
 
 
-    # Define copies for retraining CNN
+    # Define copies for retraining classifer
     
     # X_train_z_copy = x_train.copy()
     # y_train_copy = y_train.copy()
 
-    # Define variables for retraining CNN
+    # Define variables for retraining classifier
     
     # purge_time = 1
     # retrain_time = 1

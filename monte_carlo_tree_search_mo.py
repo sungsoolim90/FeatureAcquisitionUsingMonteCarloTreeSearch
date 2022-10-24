@@ -1,22 +1,17 @@
 """
-
-Code adapted from:
-
-https://gist.github.com/qpwo/c538c6f73727e254fdc7fab81024f6e1
-
+This script implements the MCTS class object for multiobjective training
+1) Selection
+2) Expansion
+3) Simulation
+4) Backpropagation
 """
-
-#Problems 
-# 1) lower costs (simulation higher than global P)
-# 2) the HV approximation for lower costs are higher than needed
-# 3) local node approximation is not correct (the costs and probabilities adding up higher than need be)
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
 import math
 import random
 
-from parameters_MCTS_MO import*
+from parameters_MCTS import*
 
 import os
 os.environ['PYTHONHASHSEED'] = str(seed_value)
@@ -120,12 +115,6 @@ class MCTS:
                 local = []
                 for j in range(len(self.local_P[node])):
                     local.append([i/(self.N[node] + 1) for i in self.local_P[node][j]])
-            #if isinstance(self.local_P[n][0],float):
-            #    local = self.local_P[n] / self.N[n]
-            #else: #list of lists
-            #    local = []
-            #    for j in range(len(self.local_P[n])):
-            #        local.append(tree.local_P[n][j] / tree.N[n])
 
             local = flatten(local)
             row = int(len(local)/2.0)
@@ -144,10 +133,8 @@ class MCTS:
 
         if node not in self.children:
             max_child = node.find_random_child(i,X_train)
-            #print('random next action')
         else:
             max_child = max(self.children[node],key=score)
-            #print(score(max_child))
         
         return max_child, score(max_child)
 
@@ -156,8 +143,7 @@ class MCTS:
         leaf = path[-1] #leaf node
         self._expand(leaf,i,X_train,model_zero,y_train) #from the leaf node, expand
         reward = self._simulate(leaf,i,model_zero,X_train,y_train) #simulate to the end (random children)
-        self._backpropagate(path,reward)#,model_zero,y_train,i) #backpropagate to the root (increase reward and N for each node by 1)
-        #self.local_global(path,model_zero,y_train,i)
+        self._backpropagate(path,reward) #backpropagate to the root (increase reward and N for each node by 1)
 
     def _select(self,node,model_zero,y_train,i,X_train):
         path = []
@@ -216,7 +202,6 @@ class MCTS:
 
             #this path
             node = self._uct_select(node)  # descend a layer deeper
-            #self.update(node,model_zero)
 
     def _expand(self,node,i,X_train,model_zero,y_train):
         if node in self.children:
@@ -262,32 +247,23 @@ class MCTS:
             reward[0] /= t
             reward[1] /= t
 
-            # if not self.local_P[node]:
-            #     self.local_P[node] = []
-            #     self.local_P[node].append(-node.cost())
-            #     self.local_P[node].append(node.f1(model_zero,y_train,i))
-
             self.global_P = [x for x in self.global_P if x]
 
             if self.global_P:
                 if isinstance(self.global_P[0],float):
-                    dom = dominates(self.global_P,reward) #what if global_P is a list of lists
+                    dom = dominates(self.global_P,reward) 
                     r_dom = dominates(reward,self.global_P)
                     if dom == True:
                         self.global_P = self.global_P
-                        #self.global_P = [x for x in self.global_P if x]
                     elif r_dom == True:
                         self.global_P = reward
-                        #self.global_P = [x for x in self.global_P if x]
                     else:
-                        #self.global_P.append(reward)
                         self.global_P = [self.global_P, reward]
                         self.global_P = flatten(self.global_P)
                         row = int(len(self.global_P)/2.0)
                         col = 2
                         self.global_P = [self.global_P[col*i : col*(i+1)] for i in range(row)]
                         self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-                        #self.global_P = [x for x in self.global_P if x]
                 else:
                     self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
                     dom = []
@@ -299,38 +275,24 @@ class MCTS:
                         r_dom.append(dominates(reward,self.global_P[j]))
 
                     if any(dom) == False:
-                        #self.global_P = self.global_P
                         for z in range(len(dom)):
                             if dom[z] == False:
                                 self.global_P[z] = reward
                         self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-                        #self.global_P = [x for x in self.global_P if x]
                     elif any(r_dom) == True:
                         for z in range(len(r_dom)):
                             if r_dom[z] == True:
                                 self.global_P[z] = reward
                         self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-                        #self.global_P = [x for x in self.global_P if x]
                     else:
-                        #self.global_P.append(reward)
                         self.global_P = [self.global_P, reward]
                         self.global_P = flatten(self.global_P)
                         row = int(len(self.global_P)/2.0)
                         col = 2
                         self.global_P = [self.global_P[col*i : col*(i+1)] for i in range(row)]
                         self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-                        #self.global_P = [x for x in self.global_P if x]
             else:
                 self.global_P = reward
-
-            # P, dominated = simple_cull(self.global_P,dominates) #Pareto Optimal Global P
-
-            # P = list(P)
-
-            # for i in range(len(P)):
-            #    P[i] = list(P[i])
-
-            # self.global_P = P
 
             if node.is_terminal():
 
@@ -342,19 +304,15 @@ class MCTS:
                         r_dom = dominates(reward,self.global_P)
                         if dom == True:
                             self.global_P = self.global_P
-                            #self.global_P = [x for x in self.global_P if x]
                         elif r_dom == True:
                             self.global_P = reward
-                            #self.global_P = [x for x in self.global_P if x]
                         else:
-                            #self.global_P.append(reward)
                             self.global_P = [self.global_P, reward]
                             self.global_P = flatten(self.global_P)
                             row = int(len(self.global_P)/2.0)
                             col = 2
                             self.global_P = [self.global_P[col*i : col*(i+1)] for i in range(row)]
                             self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-                            #self.global_P = [x for x in self.global_P if x]
                     else:
                         self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
                         dom = []
@@ -366,46 +324,30 @@ class MCTS:
                             r_dom.append(dominates(reward,self.global_P[j]))
 
                         if any(dom) == False:
-                            #self.global_P = self.global_P
                             for z in range(len(dom)):
                                 if dom[z] == False:
                                     self.global_P[z] = reward
                             self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-                            #self.global_P = [x for x in self.global_P if x]
                         elif any(r_dom) == True:
                             for z in range(len(r_dom)):
                                 if r_dom[z] == True:
                                     self.global_P[z] = reward
                             self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-                            #self.global_P = [x for x in self.global_P if x]
                         else:
-                            #self.global_P.append(reward)
                             self.global_P = [self.global_P, reward]
                             self.global_P = flatten(self.global_P)
                             row = int(len(self.global_P)/2.0)
                             col = 2
                             self.global_P = [self.global_P[col*i : col*(i+1)] for i in range(row)]
                             self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-                            #self.global_P = [x for x in self.global_P if x]
                 else:
                     self.global_P = reward
-            
-                # P, dominated = simple_cull(self.global_P,dominates)
-
-                # P = list(P)
-
-                # for i in range(len(P)):
-                #    P[i] = list(P[i])
-
-                # self.global_P = P
 
                 return reward
 
             node = node.find_random_child(i,X_train)
 
-    def _backpropagate(self,path,reward):#,model_zero,y_train,i):
-
-        #during back propagation, the local P can be higher than -1.0 and 1.0
+    def _backpropagate(self,path,reward):
 
         t = 0
 
@@ -420,117 +362,9 @@ class MCTS:
                 self.local_P[node][0] += reward[0] #For local P, backpropagation
                 self.local_P[node][1] += reward[1]
 
-                #self.local_P[node] = [z/t for z in self.local_P[node]]
-
             else:
 
                 self.local_P[node] = reward
-
-            # self.local_P[node] = [x for x in self.local_P[node] if x]
-
-            # if self.local_P[node]:
-            #     if isinstance(self.local_P[node][0], float):
-            #         dom = dominates(self.local_P[node],reward)
-            #         r_dom = dominates(reward,self.local_P[node])
-            #         if dom == True:
-            #             self.local_P[node] = self.local_P[node]
-            #         elif r_dom == True:
-            #             self.local_P[node] = reward
-            #         else:
-            #             self.local_P[node] = [self.local_P[node], reward]
-            #             self.local_P[node] = flatten(self.local_P[node])
-            #             row = int(len(self.local_P[node])/2.0)
-            #             col = 2
-            #             self.local_P[node] = [self.local_P[node][col*i : col*(i+1)] for i in range(row)]
-            #             self.local_P[node] = [list(x) for x in set(tuple(x) for x in self.local_P[node])]
-            #     else:
-            #         self.local_P[node] = [list(x) for x in set(tuple(x) for x in self.local_P[node])]
-
-            #         dom = []
-            #         for j in range(len(self.local_P[node])):
-            #             dom.append(dominates(self.local_P[node][j],reward))
-
-            #         r_dom = []
-            #         for j in range(len(self.local_P[node])):
-            #             r_dom.append(dominates(reward,self.local_P[node][j]))
-
-            #         if any(dom) == False:
-            #             for z in range(len(dom)):
-            #                 if dom[z] == False:
-            #                     self.local_P[node][z] = reward
-            #             self.local_P[node] = [list(x) for x in set(tuple(x) for x in self.local_P[node])]
-            #         elif any(r_dom) == True:
-            #             for z in range(len(r_dom)):
-            #                 if r_dom[z] == True:
-            #                     self.local_P[node][z] = reward
-            #             self.local_P[node] = [list(x) for x in set(tuple(x) for x in self.local_P[node])]
-            #         else:
-            #             self.local_P[node] = [self.local_P[node], reward]
-            #             self.local_P[node] = flatten(self.local_P[node])
-            #             row = int(len(self.local_P[node])/2.0)
-            #             col = 2
-            #             self.local_P[node] = [self.local_P[node][col*i : col*(i+1)] for i in range(row)]
-            #             self.local_P[node] = [list(x) for x in set(tuple(x) for x in self.local_P[node])]
-            # else:
-            #     self.local_P[node] = reward
-
-    # def local_global(self,path,model_zero,y_train,i):
-    #     #delete locals that are not dominated by global
-
-    #     if isinstance(self.global_P[0],float):
-    #         for node in path:
-    #             local = []
-    #             if isinstance(self.local_P[node][0],float):
-    #                 local.append([i/(self.N[node] + 1) for i in self.local_P[node]])
-    #             else: #list of lists
-    #                 for j in range(len(self.local_P[node])):
-    #                     local.append([i/(self.N[node] + 1) for i in self.local_P[node][j]])
-
-    #             n_dom = []
-    #             for k in range(len(local)):
-    #                 n_dom.append(dominates(local[k],self.global_P))
-
-    #             true_indx = [i for i, x in enumerate(n_dom) if x]
-    #             if true_indx:
-    #                 for index in sorted(true_indx, reverse=True):
-    #                     if isinstance(self.local_P[node][0], float):
-    #                         del self.local_P[node][index:index+2]
-    #                     else:
-    #                         del self.local_P[node][index]
-    #                 if not self.local_P[node]:
-    #                     self.local_P[node].append(-node.cost())#,node_children.f1(model_zero,y_train,i)])
-    #                     self.local_P[node].append(node.f1(model_zero,y_train,i))
-
-    #     else:
-    #         self.global_P = [list(x) for x in set(tuple(x) for x in self.global_P)]
-    #         for node in path:
-    #             local = []
-    #             if isinstance(self.local_P[node][0],float):
-    #                 local.append([i/(self.N[node] + 1) for i in self.local_P[node]])
-    #             else: #list of lists
-    #                 for j in range(len(self.local_P[node])):
-    #                     local.append([i/(self.N[node] + 1) for i in self.local_P[node][j]])
-
-    #             n_dom = []
-    #             for k in range(len(local)):
-    #                 for z in range(len(self.global_P)):
-    #                     n_dom.append(dominates(local[k],self.global_P[z]))
-
-    #             n_dom = list(set(n_dom))
-
-    #             true_indx = [i for i, x in enumerate(n_dom) if x] #index of list of lists
-
-    #             true_indx = list(set(true_indx))
-
-    #             if true_indx:
-    #                 for index in sorted(true_indx, reverse=True):
-    #                     if isinstance(self.local_P[node][0], float):
-    #                         del self.local_P[node][index:index+2]
-    #                     else:
-    #                         del self.local_P[node][index]
-    #                 if not self.local_P[node]:
-    #                     self.local_P[node].append(-node.cost())#,node_children.f1(model_zero,y_train,i)])
-    #                     self.local_P[node].append(node.f1(model_zero,y_train,i))
 
     def _uct_select(self, node):
 
@@ -547,23 +381,11 @@ class MCTS:
             for i in range(len(self.local_P[n])): #could be list of lists
                 r_lst = []
                 if isinstance(self.local_P[n][0],float): #this is when only one list 
-                    #if self.local_P[n][1] < 1.0:
-                    #print(self.local_P[n][i] / N_vertex)
-                    #print(self.exploration_weight * math.sqrt(log_N_vertex / N_vertex)) #really small compared to the above
                     r_norm.append(self.local_P[n][i] / N_vertex + self.exploration_weight * math.sqrt(log_N_vertex / N_vertex))
-                    #else:
-                    #r_norm.append(self.local_P[n][i] + self.exploration_weight * math.sqrt(log_N_vertex / self.N[n]))
                 else: #list of lists
-                    #if self.local_P[n][i][1] < 1.0:
-                    #    for j in range(len(self.local_P[n][i])):
-                    #        r_lst.append(self.local_P[n][i][j] + self.exploration_weight * math.sqrt(log_N_vertex / self.N[n]))
-                    #else:
                     for j in range(len(self.local_P[n][i])):
                         r_lst.append(self.local_P[n][i][j] / N_vertex + self.exploration_weight * math.sqrt(log_N_vertex / N_vertex))
                 r_norm_lst.append(r_lst)
-
-            #print(r_norm)
-            #print(r_norm_lst)
 
             if isinstance(self.local_P[n][0],float):
                 return hypervolume(r_norm)

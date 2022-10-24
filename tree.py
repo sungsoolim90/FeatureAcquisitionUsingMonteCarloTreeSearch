@@ -1,52 +1,23 @@
-from collections import namedtuple
-#from random import choice, uniform
-import random
-from monte_carlo_tree_search import MCTS, Node
-from parameters_MCTS_SO import*
-import numpy as np
-import pickle
-import tensorflow as tf
-from tensorflow import keras
-#from tensorflow.keras.layers import Dense
-#from tensorflow.keras.models import Sequential
-import tensorflow.keras.backend as K
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.regularizers import l1_l2
-from tensorflow.keras import layers
+"""
+This script implements the node class object for training
+1) find_children: find all children nodes of given node
+2) find_random_child: find a random child node of given node
+3) reward: find reward for a given acquisition action
+4) make: make a new node given action
 
-import itertools
-import time
+"""
+
+from collections import namedtuple
+from monte_carlo_tree_search import MCTS, Node
+from parameters_MCTS import*
+
+import numpy as np
+import random
 
 import os
-os.environ['PYTHONHASHSEED']=str(seed_value)# 2. Set `python` built-in pseudo-random generator at a fixed value
-random.seed(seed_value)# 3. Set `numpy` pseudo-random generator at a fixed value
-np.random.seed(seed_value)
-
-_T = namedtuple("node", "tup terminal")
-
-def quad_beg(cost):
-    a = (coeff) / (total_cost) ** 2 # c = value at high cost, d = high cost (41), k,h=0
-    y = a * (cost) ** 2
-    return y
-
-def linear_function(cost): #c = coeff, d = high cost, h = 0, k = 0
-    a = coeff / total_cost
-    y = a*cost
-    return y
-
-def quad_end(cost):
-    a = -coeff / total_cost ** 2#-y_1/x_1 **2
-    b = 2 * coeff / total_cost #2*y_1/x_1
-    y = a * cost ** 2 + b * cost
-    return y
-
-def constant():
-    return coeff
-
-if cost_name == 'fit':
-    fit_name = 'finalized_model_physionet_smote_fit_' + str(random_state) + '_' + str(seed_value) + '.sav'
-    model_fit = pickle.load(open(fit_name, 'rb'))
+os.environ['PYTHONHASHSEED']=str(seed_value)
+random.seed(seed_value)# 2. Seed python built-in pseudo-random generator
+np.random.RandomState(seed_value)# 3. Seed numpy pseudo-random generator
 
 _T = namedtuple("node", "tup terminal")
 
@@ -84,12 +55,6 @@ class Tree(_T, Node):
 
         tup = tup.reshape((-1,28,28,1))
 
-        lst = [[i] for i in range(0,784)]
-
-        pairs = [[i,i] for i in range(0,784)]
-
-        dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
-
         to_be_acquired = []
 
         for k in range(49):
@@ -107,24 +72,19 @@ class Tree(_T, Node):
     def reward(node,model_sk,X_train,i):
 
         cost = 0
+
         total_cost = 784.0
 
-        tup = np.array(node.tup)
+        state = np.array(node.tup).flatten()
 
-        tup = tup.reshape((-1,28,28,1))
-
-        lst = [[i] for i in range(0,784)]
-
-        pairs = [[i,i] for i in range(0,784)]
-
-        dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
+        state = state.reshape((-1,28,28,1))
 
         to_be_acquired = []
 
         for z in range(49):
             row_action = int(z/7.0) ##row action
             column_action = int(z - row_action*7.0)
-            if np.allclose(tup[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
+            if np.allclose(state[:,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)],X_train[i,column_action*4:(column_action+1)*4,4*row_action:4*(row_action+1)]):#,atol=1.0e-6):
                 to_be_acquired.append(z) #already acquired
 
         num_features = list(set(to_be_acquired))
@@ -132,19 +92,14 @@ class Tree(_T, Node):
         for i in range(len(num_features)):
             cost += 16
 
-        state = np.asarray(node.tup).flatten()
+        try:
+            state = state.reshape((-1,784))
+            classification_prob = np.max(model_sk.predict_proba(state).flatten())
+        except AttributeError:
+            classification_prob = np.max(model_sk.predict(state)).flatten()
 
-        #state = state.reshape(1,-1)
-        #classification = model_sk.predict(state) #0 or 1
-        #prob = model_sk.predict_proba(state).flatten()
-        #classification = prob[classification[0]]
-        state = state.reshape((-1,28,28,1))
-        classification = model_sk(state,training=False)#.predict(state)
-        classification = classification[0]
-        classification = np.max(classification)#classification[Y_train[m]]#int(classification[0])]
-        #classification = np.max(X)
         cost = (cost + 1.0)/(total_cost + 1.0) #cost always increasing from 0 to 1
-        return_value = classification/cost
+        return_value = classification_prob/cost
         return_value = return_value.flatten()
 
         return return_value
@@ -153,12 +108,6 @@ class Tree(_T, Node):
         return node.terminal
 
     def make(node,action,i,X_train): #action from 0 to 15
-
-        lst = [[i] for i in range(0,784)]
-
-        pairs = [[i,i] for i in range(0,784)]
-
-        dict_lst = dict([(k, [v]) for k, v in pairs])  #=> {'a': 2, 'b': 3}
 
         row_action = int(action/7.0) ##row action
 
