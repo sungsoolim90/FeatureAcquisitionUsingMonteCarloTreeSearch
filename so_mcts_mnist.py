@@ -501,8 +501,8 @@ for i in range(m):
 	#start with zero features
 	print(i)
 	tp = (1.0e-6,)*784
-	node = Tree(tup=tp, terminal=False) #the model is called multiple times
-	tree = MCTS() #for every new sample
+	node = Tree(tup=tp, terminal=False) #instantiate a root node
+	tree = MCTS() #instantiate a new search tree
 
 	act  = []
 	#vt = 1
@@ -552,7 +552,7 @@ for i in range(m):
 
 	if integrated: 
 
-		if (i+1) % retrain_step == 0:
+		if (i+1) % retrain_step_pol == 0:
 			
 			print('Integrated Policy Training\n')
 
@@ -681,7 +681,7 @@ for i in range(m):
 				pickle.dump(result_N, f, pickle.HIGHEST_PROTOCOL)
 
 # For the retrain strategy, where LR or CNN classifier is periodically retrained
-# on the states visited during the training of the PPO algorithm
+# on the states visited during the training of the MCTS algorithm
 	# if retrain_sk:
 
 	# 	if (i+1) % retrain_step == 0:
@@ -854,7 +854,7 @@ for i in range(m):
 
 	print(i)
 
-	tp = (0.0,)*784
+	tp = (1.0e-6,)*784
 	node = Tree(tup=tp, terminal=False) #the model is called multiple times
 
 	act = []
@@ -871,7 +871,7 @@ for i in range(m):
 		logits = np.array(logits)
 		logits = logits[0]
 
-		action = heapq.nlargest(37, range(len(logits)), key=logits.__getitem__)
+		action = heapq.nlargest(49, range(len(logits)), key=logits.__getitem__)
 
 		st =  set(act)
 		to_be = [ele for ele in action if ele not in st]

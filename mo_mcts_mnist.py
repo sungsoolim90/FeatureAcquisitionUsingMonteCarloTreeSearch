@@ -614,89 +614,41 @@ def simple_cull(inputPoints, dominates):
 #Training loop
 m,n,o,p = x_train.shape
 
-node_total_total = []
-tree_q_total = []
-tree_N_total = []
+node_total = []
+hv_total = []
+hv_hv_total = []
+P_total = []
+tree_q = []
+tree_N = []
 
-for v in range(num_epochs):
-	node_total = []
-	hv_total = []
-	hv_hv_total = []
-	P_total = []
-	tree_q = []
-	tree_N = []
+# Define copies for retraining classifier
+node_total_retrain = []
+X_train_z_copy = x_train.copy()
+y_train_copy = y_train.copy()
 
-	node_total_retrain = []
-	X_train_z_copy = x_train.copy()
-	y_train_copy = y_train.copy()
-	retrain_time = 1
-	purge_time = 1
+# Define variables for retraining classifier
+retrain_time = 1
+purge_time = 1
 
-	for i in range(m):
-		#start with a patient with zero features
-		print(i)
-		tp = (1.0e-6,)*784
-		node = Tree(tup=tp, terminal=False) #the model is called multiple times
-		#num = np.random.randint(1,15)
-		#num_node = 1
-		tree = MCTS() #for every new sample
-		#tree.update(node,model_zero)
-		hv = []
-		hv_hv = []
-		act = []
-		nodes = []
-		while True:
-			#based on the given node, find the MCTS next state
-			hv_node = [-node.cost(i,x_train_new),node.f1(model_zero,y_train_new,i,x_train_new)]
+for i in range(m):
+	#start with a patient with zero features
+	print(i)
+	tp = (1.0e-6,)*784
+	node = Tree(tup=tp, terminal=False) #instantiate a root node
+	tree = MCTS() #instantiate a new search tree
 
-			nodes.append(node.tup)
+	# Saving variables for the hypervolume indicator
+	hv = []
+	hv_hv = []
+	act = []
+	nodes = []
+	while True:
+		#based on the given node, find the MCTS next state
+		hv_node = [-node.cost(i,x_train_new),node.f1(model_zero,y_train_new,i,x_train_new)]
 
-			if node.terminal:
-				if isinstance(tree.local_P[node][0],float):
-					hv_node_save = [i / (tree.N[node]+1) for i in tree.local_P[node]]
-				else:
-					hv_node_save_lst = []
-					for j in range(len(tree.local_P[node])):
-						hv_node_save_lst.append([i / (tree.N[node]+1) for i in tree.local_P[node][j]])
-					hv_node_save = flatten(hv_node_save_lst)
-					row = int(len(hv_node_save)/2.0)
-					col = 2
-					hv_node_save = [hv_node_save[col*i : col*(i+1)] for i in range(row)]
+		nodes.append(node.tup)
 
-				hv_hv.append(hypervolume(hv_node))
-				hv.append(hv_node)
-				break
-
-			for z in range(training):
-				print(z) 
-				tree.train(node,i,model_zero,x_train,y_train)
-
-			if integrated:
-
-				tup_action = node.tup
-				tup_action = np.array(tup_action).reshape((-1,28,28,1))
-				logits = model(tup_action,training=False)
-				logits = np.array(logits)
-				logits = logits[0]
-
-				indx = np.argwhere(logits == np.amax(logits)).flatten().tolist()
-
-				if len(indx) == 49:
-					action = random.choice(indx)
-					while action in act:
-						action = random.choice(indx)
-					act.append(action)
-				else:
-					action = heapq.nlargest(49, range(len(logits)), key=logits.__getitem__)
-					st =  set(act)
-					to_be = [ele for ele in action if ele not in st]
-					action = to_be[0]
-					act.append(action)
-
-				node = make(node,action,i,x_train_new)
-			else:
-				node, score_node = tree.choose(node,i,x_train_new) #choose best score next state
-
+		if node.terminal:
 			if isinstance(tree.local_P[node][0],float):
 				hv_node_save = [i / (tree.N[node]+1) for i in tree.local_P[node]]
 			else:
@@ -708,202 +660,416 @@ for v in range(num_epochs):
 				col = 2
 				hv_node_save = [hv_node_save[col*i : col*(i+1)] for i in range(row)]
 
-			dict_node = {}
-			dict_node[node] = hv_node_save
-			tree_q.append(dict_node)
-
 			hv_hv.append(hypervolume(hv_node))
 			hv.append(hv_node)
+			break
 
-			P = [x for x in tree.global_P if x]
-			P_node = {}
-			P_node[node] = P
-			tree_N.append(P_node)
+		for z in range(training):
+			print(z) 
+			tree.train(node,i,model_zero,x_train,y_train)
 
-		hv_total.append(hv)
-		hv_hv_total.append(hv_hv)
+		if integrated:
 
-		node_total.append(nodes)
-		P = [x for x in tree.global_P if x]
+			tup_action = node.tup
+			tup_action = np.array(tup_action).reshape((-1,28,28,1))
+			logits = model(tup_action,training=False)
+			logits = np.array(logits)
+			logits = logits[0]
 
-		if isinstance(P[0],float):
-			P_total.append(P)
+			indx = np.argwhere(logits == np.amax(logits)).flatten().tolist()
+
+			if len(indx) == 49:
+				action = random.choice(indx)
+				while action in act:
+					action = random.choice(indx)
+				act.append(action)
+			else:
+				action = heapq.nlargest(49, range(len(logits)), key=logits.__getitem__)
+				st =  set(act)
+				to_be = [ele for ele in action if ele not in st]
+				action = to_be[0]
+				act.append(action)
+
+			node = make(node,action,i,x_train_new)
 		else:
-			P = [list(x) for x in set(tuple(x) for x in P)]
-			P_total.append(P)
+			node, score_node = tree.choose(node,i,x_train_new) #choose best score next state
 
-		if integrated: 
+		if isinstance(tree.local_P[node][0],float):
+			hv_node_save = [i / (tree.N[node]+1) for i in tree.local_P[node]]
+		else:
+			hv_node_save_lst = []
+			for j in range(len(tree.local_P[node])):
+				hv_node_save_lst.append([i / (tree.N[node]+1) for i in tree.local_P[node][j]])
+			hv_node_save = flatten(hv_node_save_lst)
+			row = int(len(hv_node_save)/2.0)
+			col = 2
+			hv_node_save = [hv_node_save[col*i : col*(i+1)] for i in range(row)]
 
-			if (i+1) % retrain_step == 0:
+		dict_node = {}
+		dict_node[node] = hv_node_save
+		tree_q.append(dict_node)
 
-				print('Training')
+		hv_hv.append(hypervolume(hv_node))
+		hv.append(hv_node)
 
-				result = {}
-				for k in set().union(*tree_q):
-					for d in tree_q:
-						if d.get(k):
-							result[k] = d.get(k)
-				
-				result_N = {}
-				for k in set().union(*tree_N):
-					for d in tree_N:
-						if d.get(k):
-							result_N[k] = d.get(k)
+		P = [x for x in tree.global_P if x]
+		P_node = {}
+		P_node[node] = P
+		tree_N.append(P_node)
 
-				p = Pool(8)
-				finalValue = list(p.map(make_keys, result.items()))
+	hv_total.append(hv)
+	hv_hv_total.append(hv_hv)
 
-				keys = []
-				scores = []
-				for k in range(len(finalValue)):
-					if finalValue[k][0]:
-						keys.append(list(finalValue[k][0][0]))
-						scores.append(finalValue[k][1][0])
+	node_total.append(nodes)
+	P = [x for x in tree.global_P if x]
 
-				all_X_filter = [] 
-				action = []
-				for t in range(len(scores)):
-					criterion = list(scores[t])
-					common_indx = np.argwhere(criterion==np.max(criterion)).flatten().tolist()#np.argmax(criterion)
-					if len(common_indx) == 1:
-						action.append(scores[t])#random.choice(common_indx))
-						all_X_filter.append(keys[t])
+	if isinstance(P[0],float):
+		P_total.append(P)
+	else:
+		P = [list(x) for x in set(tuple(x) for x in P)]
+		P_total.append(P)
 
-				all_X_filter = np.array(all_X_filter)
-				action = np.array(action)
+	if integrated: 
 
-				finalValue = []
-				keys = []
-				scores = []
+		if (i+1) % retrain_step_pol == 0:
 
-				train_X_total, test_X_total, train_y_total, test_y_total = train_test_split(all_X_filter,action,test_size = 0.2,random_state=random_state)
+			print('Integrated Policy Training\n')
 
-				batch_size = 2
-				train_X_total = np.reshape(train_X_total, (-1, 28,28,1))
-				test_X_total = np.reshape(test_X_total, (-1, 28,28,1))
-				train_dataset = tf.data.Dataset.from_tensor_slices((train_X_total, train_y_total))
-				train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
+			result = {}
+			for k in set().union(*tree_q):
+				for d in tree_q:
+					if d.get(k):
+						result[k] = d.get(k)
+			
+			result_N = {}
+			for k in set().union(*tree_N):
+				for d in tree_N:
+					if d.get(k):
+						result_N[k] = d.get(k)
 
-				val_dataset = tf.data.Dataset.from_tensor_slices((test_X_total, test_y_total))
-				val_dataset = val_dataset.shuffle(buffer_size=1024).batch(batch_size)
+			p = Pool(8)
+			finalValue = list(p.map(make_keys, result.items()))
 
-				tf.config.run_functions_eagerly(True)
+			keys = []
+			scores = []
+			for k in range(len(finalValue)):
+				if finalValue[k][0]:
+					keys.append(list(finalValue[k][0][0]))
+					scores.append(finalValue[k][1][0])
 
-				loss_train, loss_test, acc_train, acc_test = train(train_dataset,val_dataset)#$#keras_models[m])
+			all_X_filter = [] 
+			action = []
+			for t in range(len(scores)):
+				criterion = list(scores[t])
+				common_indx = np.argwhere(criterion==np.max(criterion)).flatten().tolist()
+				if len(common_indx) == 1:
+					action.append(scores[t])
+					all_X_filter.append(keys[t])
 
-				weight_name = 'mnist_mo_lr_model_weights_' + model_name + '_' + save_name + '_' + further_name + '_' + str(random_state) + '_' + str(seed_value) + '.h5'
-				model.save_weights(weight_name)
+			all_X_filter = np.array(all_X_filter)
+			action = np.array(action)
 
-				tree_q = []
-				tree_N = []
+			name = 'mo_policy_states_integrated_' + str(random_state) + '_' + str(seed_value) + '_' + str(i+1) + '.pkl'
+			with open(name, 'wb') as f:
+				pickle.dump(all_X_filter, f)
 
-		if retrain_sk:
+			name = 'mo_policy_action_probabilities_integrated_' + str(random_state) + '_' + str(seed_value) + '_' + str(i+1) + '.pkl'
+			with open(name, 'wb') as f:
+				pickle.dump(action, f)
 
-			if (i + 1) % retrain_step == 0:
+			finalValue = []
+			keys = []
+			scores = []
 
-				print('Retraining CNN')
+			train_X_total, test_X_total, train_y_total, test_y_total = train_test_split(all_X_filter,action,test_size = 0.2,random_state=random_state)
 
-				if purge_time > 1:
-					y_train_new_z = []
-					for k in range(purge_step*(purge_time-1),i+1):
-						y_train_new_z.append(y_train_copy[k])
-				else:
-					y_train_new_z = []
-					for k in range(i+1):
-						y_train_new_z.append(y_train_copy[k])
+			batch_size = 2
+			train_X_total = np.reshape(train_X_total, (-1,28,28,1))
+			test_X_total = np.reshape(test_X_total, (-1,28,28,1))
+			train_dataset = tf.data.Dataset.from_tensor_slices((train_X_total, train_y_total))
+			train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
 
-				lst_to_be_added = list(set([i for i in range(10)]) - set(y_train_new_z))
-				indx_to_be_added = []
-				if lst_to_be_added:
-					for w in range(len(lst_to_be_added)):
-						l = np.where(y_train_new == lst_to_be_added[w])
-						indx_to_be_added.append(l[0][0])
-						y_train_new_z.append(lst_to_be_added[w])
+			val_dataset = tf.data.Dataset.from_tensor_slices((test_X_total, test_y_total))
+			val_dataset = val_dataset.shuffle(buffer_size=1024).batch(batch_size)
 
-				new_nodes = []
+			#tf.config.run_functions_eagerly(True)
 
-				for b in range(len(indx_to_be_added)):
-				    new_nodes.append(x_train_new[indx_to_be_added[b]].reshape((-1,784))[0])
+			loss_train, loss_test, acc_train, acc_test = train(train_dataset,val_dataset)
 
-				y_train_new_z_total = pd.DataFrame(y_train_new_z)
+			loss_train_list = []
+			for p in range(len(loss_train)):
+				loss_train_list.append(loss_train[p].numpy())
 
-				y_train_new_z_total = pd.concat([pd.DataFrame(y_train_copy),y_train_new_z_total],ignore_index=True)
+			loss_test_list = []
+			for p in range(len(loss_test)):
+				loss_test_list.append(loss_test[p].numpy())
 
-				retrain_node_transform_selected = pd.DataFrame(node_total_retrain)
+			acc_train_list = []
+			for p in range(len(acc_train)):
+				acc_train_list.append(acc_train[p].numpy())
 
-				X_train_z_new = pd.concat([pd.DataFrame(X_train_z_copy.reshape((-1,784))),retrain_node_transform_selected,pd.DataFrame(new_nodes)],ignore_index = True)
-				
-				model_zero.fit(X_train_z_new, y_train_new_z_total)
-				# model_zero.fit(node_retrain_total,y_train_new)
+			acc_test_list = []
+			for p in range(len(acc_test)):
+				acc_test_list.append(acc_test[p].numpy())
 
-				#batch_size = 512
-				#train_X_total = np.reshape(X_train_z_new, (-1, 27))
-				#test_X_total = np.reshape(X_test_z, (-1, 27))
-				#train_dataset = tf.data.Dataset.from_tensor_slices((train_X_total, y_train_new))
-				#train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
+			with open('mo_policy_network_loss_train_' + model_name + '_' + classifer_name + '_' + save_name + '_' + str(i+1) + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) + '.txt', 'w') as f:
+				f.write(json.dumps(str(loss_train_list)))
 
-				#val_dataset = tf.data.Dataset.from_tensor_slices((test_X_total, y_test))
-				#val_dataset = val_dataset.batch(batch_size)
+			with open('mo_policy_network_loss_test_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(i+1) + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) + '.txt', 'w') as f:
+				f.write(json.dumps(str(loss_test_list)))
 
-				#loss_train, loss_test, acc_train, acc_test = train_sk(train_dataset,val_dataset)
+			with open('mo_policy_network_acc_train_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(i+1) + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) + '.txt', 'w') as f:
+				f.write(json.dumps(str(acc_train_list)))
 
-			if (i + 1) % purge_step == 0:
+			with open('mo_policy_network_acc_test_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(i+1) + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) + '.txt', 'w') as f:
+				f.write(json.dumps(str(acc_test_list)))
+			
+			weight_name = 'mo_mnist_policy_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(i+1) + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) +  '.h5'
+			model.save_weights(weight_name)
 
-				print('Purging')
+			print('Saving tree\n')
 
-				q,r = X_train_z_new.shape
-				m,n,o,p = x_train_new.shape
-				purge = q - m
+			filename_Q = 'tree_P_mnist_' + '_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(training) + '_' + str(retrain_step) + '_' + str(seed_value) + '_' + str(i+1) + '.pickle'
+			with open(filename_Q, 'wb') as f:
+				# Pickle the 'data' dictionary using the highest protocol available.
+				pickle.dump(result, f, pickle.HIGHEST_PROTOCOL)
 
-				indx = random.sample(range(0, q), purge)
+			filename_N = 'tree_N_mo_mnist_' + '_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(training) + '_' + str(retrain_step) + '_' + str(seed_value) + '_' + str(i+1) + '.pickle'
+			with open(filename_N, 'wb') as f:
+				# Pickle the 'data' dictionary using the highest protocol available.
+				pickle.dump(result_N, f, pickle.HIGHEST_PROTOCOL)
 
-				indx_name = []
+			tree_q = []
+			tree_N = []
+	else:
 
-				for j in range(len(indx)):
-					indx_name.append(X_train_z_new.iloc[indx[j],:].name)
+		if (i+1) % save_step == 0:
 
-				X_train_drop = X_train_z_new.drop(index=indx_name)
+			print('Saving tree\n')
 
-				y_train_drop = y_train_new_z_total.drop(index=indx_name)
+			result = {}
+			for k in set().union(*tree_q):
+				for d in tree_q:
+					if d.get(k):
+						result[k] = d.get(k)
+			
+			result_N = {}
+			for k in set().union(*tree_N):
+				for d in tree_N:
+					if d.get(k):
+						result_N[k] = d.get(k)
 
-				node_total_retrain = []
+			filename_Q = 'tree_P_mnist_' + '_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(training) + '_' + str(retrain_step) + '_' + str(seed_value) + '_' + str(i+1) + '.pickle'
+			with open(filename_Q, 'wb') as f:
+				# Pickle the 'data' dictionary using the highest protocol available.
+				pickle.dump(result, f, pickle.HIGHEST_PROTOCOL)
 
-				X_train_z_copy = X_train_drop.to_numpy()
+			filename_N = 'tree_N_mo_mnist_' + '_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(training) + '_' + str(retrain_step) + '_' + str(seed_value) + '_' + str(i+1) + '.pickle'
+			with open(filename_N, 'wb') as f:
+				# Pickle the 'data' dictionary using the highest protocol available.
+				pickle.dump(result_N, f, pickle.HIGHEST_PROTOCOL)
 
-				y_train_copy = y_train_drop.iloc[:,0].tolist()
+# For the retrain strategy, where LR or CNN classifier is periodically retrained
+# on the states visited during the training of the MCTS algorithm
+	# if retrain_sk:
 
-				purge_time += 1
+	# 	if (i+1) % retrain_step == 0:
 
-	if (v + 1) % num_epochs == 0:
+	# 		print('Retraining logistic regression')
 
-		print('Saving tree')
+	# 		if purge_time > 1:
+	# 			y_train_new_z = []
+	# 			for k in range(purge_step*(purge_time-1),i+1):
+	# 				y_train_new_z.append(y_train_copy[k])
+	# 		else:
+	# 			y_train_new_z = []
+	# 			for k in range(i+1):
+	# 				y_train_new_z.append(y_train_copy[k])
 
-		result = {}
-		for k in set().union(*tree_q):
-			for d in tree_q:
-				if d.get(k):
-					result[k] = d.get(k)
+	# 		lst_to_be_added = list(set([i for i in range(10)]) - set(y_train_new_z))
+	# 		indx_to_be_added = []
+	# 		if lst_to_be_added:
+	# 			for w in range(len(lst_to_be_added)):
+	# 				l = np.where(y_train_new == lst_to_be_added[w])
+	# 				indx_to_be_added.append(l[0][0])
+	# 				y_train_new_z.append(lst_to_be_added[w])
+
+	# 		new_nodes = []
+
+	# 		for b in range(len(indx_to_be_added)):
+	# 		    new_nodes.append(x_train_new[indx_to_be_added[b]].reshape((-1,784))[0])
+
+	# 		y_train_new_z_total = pd.DataFrame(y_train_new_z)
+
+	# 		y_train_new_z_total = pd.concat([pd.DataFrame(y_train_copy),y_train_new_z_total],ignore_index=True)
+
+	# 		retrain_node_transform_selected = pd.DataFrame(node_total_retrain)
+
+	# 		X_train_z_new = pd.concat([pd.DataFrame(X_train_z_copy.reshape((-1,784))),retrain_node_transform_selected,pd.DataFrame(new_nodes)],ignore_index = True)
+
+	# 		batch_size = 512
+	# 		train_X_total = np.reshape(X_train_z_new, (-1, 28,28,1))
+	# 		test_X_total = np.reshape(x_test, (-1, 28,28,1))
+	# 		train_dataset = tf.data.Dataset.from_tensor_slices((train_X_total, y_train_new_z_total))
+	# 		train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
+
+	# 		val_dataset = tf.data.Dataset.from_tensor_slices((test_X_total, y_test))
+	# 		val_dataset = val_dataset.batch(batch_size)
+
+	# 		loss_train, loss_test, acc_train, acc_test = train_sk(train_dataset,val_dataset)
+
+	# 	if (i + 1) % purge_step == 0:
+
+	# 		print('Purging')
+
+	# 		q,r = X_train_z_new.shape
+	# 		m,n,o,p = x_train_new.shape
+	# 		purge = q - m
+
+	# 		indx = random.sample(range(0, q), purge)
+
+	# 		indx_name = []
+
+	# 		for j in range(len(indx)):
+	# 			indx_name.append(X_train_z_new.iloc[indx[j],:].name)
+
+	# 		X_train_drop = X_train_z_new.drop(index=indx_name)
+
+	# 		y_train_drop = y_train_new_z_total.drop(index=indx_name)
+
+	# 		node_total_retrain = []
+
+	# 		X_train_z_copy = X_train_drop.to_numpy()
+
+	# 		y_train_copy = y_train_drop.iloc[:,0].tolist()
+
+	# 		purge_time += 1
         
-		result_N = {}
-		for k in set().union(*tree_N):
-			for d in tree_N:
-				if d.get(k):
-					result_N[k] = d.get(k)
+#if retrain_sk:
+#	filename = 'retrained_model_mnist_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(training) + '_' + str(retrain_step) + '_' + str(seed_value) + '.h5'
+#	if classifier_name == 'lr':
+#		pickle.dump(model_class, open(filename, 'wb'))
+#	else:
+#		model_class.save_weights(filename)
 
-		filename_Q = 'tree_P_' + model_name + '_lr_' + further_name + '_' + save_name + str(coeff) + '_' + str(random_state) + '_' + str(seed_value) + '.pickle'
-		with open(filename_Q, 'wb') as f:
-            # Pickle the 'data' dictionary using the highest protocol available.
-			pickle.dump(result, f, pickle.HIGHEST_PROTOCOL)
+# Inference step
 
-		filename_N = 'tree_NMO_' + model_name + '_lr_' + further_name + '_' + save_name +  str(coeff) + '_' + str(random_state) + '_' + str(seed_value) + '.pickle'
-		with open(filename_N, 'wb') as f:
-            # Pickle the 'data' dictionary using the highest protocol available.
-			pickle.dump(result_N, f, pickle.HIGHEST_PROTOCOL)
+# Train a policy network on the search tree if not integrated 
+if not integrated:
 
-		tree_q = []
-		tree_N = []
+	filename_Q = 'tree_P_mnist_' + '_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(training) + '_' + str(retrain_step) + '_' + str(seed_value) + '_' + str(i+1) + '.pickle'
+	with open(filename_Q, 'rb') as f:
+		result = pickle.load(f)
 
-if retrain_sk:
-	filename = 'retrained_mo_hf_smote_lr_' + model_name + '_' + further_name + '_' + save_name + '_' +  str(coeff) + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(retrain_step) + '.h5'
-	#model_zero.save_weights(filename)
-	pickle.dump(model_zero, open(filename, 'wb'))
+	filename_N = 'tree_N_mo_mnist_' + '_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(training) + '_' + str(retrain_step) + '_' + str(seed_value) + '_' + str(i+1) + '.pickle'
+	with open(filename_N, 'rb') as f:
+		result_N = pickle.load(f)
+
+	p = Pool(8)
+
+	finalValue = list(p.map(make_keys, result.items()))
+
+	keys = []
+	scores = []
+	for k in range(len(finalValue)):
+		if finalValue[k][0]:
+			keys.append(list(finalValue[k][0][0]))
+			scores.append(finalValue[k][1][0])
+
+	all_X_filter = [] 
+	action = []
+	for t in range(len(scores)):
+		criterion = list(scores[t])
+		common_indx = np.argwhere(criterion==np.max(criterion)).flatten().tolist()
+		if len(common_indx) == 1:
+			action.append(random.choice(common_indx))
+			all_X_filter.append(keys[t])
+
+	name = 'mo_policy_states_standalone_' + str(random_state) + '_' + str(seed_value) + '.pkl'
+	with open(name, 'wb') as f:
+		pickle.dump(all_X_filter, f)
+
+	name = 'mo_policy_action_probabilities_standalone_' + str(random_state) + '_' + str(seed_value) + '.pkl'
+	with open(name, 'wb') as f:
+		pickle.dump(action, f)
+
+	train_X_total, test_X_total, train_y_total, test_y_total = train_test_split(all_X_filter,action,test_size = 0.2,random_state=random_state)
+
+	batch_size = 512
+	train_X_total = np.reshape(train_X_total, (-1,28,28,1))
+	test_X_total = np.reshape(test_X_total, (-1,28,28,1))
+	train_dataset = tf.data.Dataset.from_tensor_slices((train_X_total, train_y_total))
+	train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
+
+	val_dataset = tf.data.Dataset.from_tensor_slices((test_X_total, test_y_total))
+	val_dataset = val_dataset.shuffle(buffer_size=1024).batch(batch_size)
+
+	loss_train, loss_test, acc_train, acc_test = train(train_dataset,val_dataset)
+
+	loss_train_list = []
+	for p in range(len(loss_train)):
+		loss_train_list.append(loss_train[p].numpy())
+
+	loss_test_list = []
+	for p in range(len(loss_test)):
+		loss_test_list.append(loss_test[p].numpy())
+
+	acc_train_list = []
+	for p in range(len(acc_train)):
+		acc_train_list.append(acc_train[p].numpy())
+
+	acc_test_list = []
+	for p in range(len(acc_test)):
+		acc_test_list.append(acc_test[p].numpy())
+
+	with open('mo_policy_network_loss_train_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) + '.txt', 'w') as f:
+		f.write(json.dumps(str(loss_train_list)))
+
+	with open('mo_policy_network_loss_test_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) + '.txt', 'w') as f:
+		f.write(json.dumps(str(loss_test_list)))
+
+	with open('mo_policy_network_acc_train_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) + '.txt', 'w') as f:
+		f.write(json.dumps(str(acc_train_list)))
+
+	with open('mo_policy_network_acc_test_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) + '.txt', 'w') as f:
+		f.write(json.dumps(str(acc_test_list)))
+	
+	weight_name = 'mo_mnist_policy_' + model_name + '_' + classifier_name + '_' + save_name + '_' + str(random_state) + '_' + str(seed_value) + '_' + str(training) +  '.h5'
+	model.save_weights(weight_name)
+
+m,n,o,p = x_test.shape
+node_total = []
+for i in range(m):
+
+	print(i)
+
+	tp = (1.0e-6,)*784
+	node = Tree(tup=tp, terminal=False) #the model is called multiple times
+
+	act = []
+
+	while True:
+
+		if node.terminal:
+			break
+
+		tup_action = node.tup
+		tup_action = np.array(tup_action).reshape(-1,size)
+
+		logits = model(tup_action,training=False)
+		logits = np.array(logits)
+		logits = logits[0]
+
+		action = heapq.nlargest(49, range(len(logits)), key=logits.__getitem__)
+
+		st =  set(act)
+		to_be = [ele for ele in action if ele not in st]
+		action = to_be[0]
+
+		act.append(action)
+
+		node = make(node,action,i,x_test)
+
+name = 'node_test_' + model_name + '_' + classifier_name + '_mo_mnist_mcts_' + save_name + '_' + str(random_state) + '_' + str(training) + '_' + str(retrain_step) + '_' + str(seed_value) + '.txt'
+with open(name, 'w') as f:
+	f.write(json.dumps(node_total))
