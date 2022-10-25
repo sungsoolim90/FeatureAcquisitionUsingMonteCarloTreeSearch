@@ -6,21 +6,21 @@ Feature acquisition algorithms address the problem of acquiring informative feat
       python3 train_classifiers.py --help
       python3 train_classifiers.py --rs 1 --sv 12321 --mt cnn --st False --bs 256 -e 101
     ```
-2. ppo_mnist.py: Train PPO algorithm for feature acquition. 
+2. ppo_mnist.py: Train the PPO algorithm for feature acquition. 
     ```diff
       python3 ppo_mnist.py --help
       python3 ppo_mnist.py --rs 1 --sv 12321 --mt cnn --uf 49 --e 10 --st False
     ```
-3. dqn_mnist.py
+3. dqn_mnist.py: Train the DQN algorithm for feature acquition. 
     ```diff
       python3 dqn_mnist.py --help
       python3 dqn_mnist.py --rs 1 --sv 12321 --mt cnn --e 10 --st False
     ```
-4. so_mcts_mnist.py
+4. so_mcts_mnist.py: Train the single-objective MCTS algorithm for feature acquition. 
     ```diff
       python3 so_mcts_mnist.py
     ```
-5. mo_mcts_mnist.py
+5. mo_mcts_mnist.py: Train the multi-objective MCTS algorithm for feature acquition. 
     ```diff
       python3 mo_mcts_mnist.py
     ```
